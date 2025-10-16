@@ -26,4 +26,4 @@ RUN echo '#!/bin/bash' > /app/decode_credentials.sh && \
 EXPOSE 5001
 
 # Default to HTTP wrapper for deployment
-CMD ["sh", "-c", "/app/decode_credentials.sh && python http_wrapper.py"]
+CMD /app/decode_credentials.sh && python http_wrapper.py

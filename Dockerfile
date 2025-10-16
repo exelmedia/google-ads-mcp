@@ -1,35 +1,19 @@
-FROM python:3.11-slim
+FROM python:3.10
 
-# Zainstaluj system dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Ustaw working directory
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY requirements.txt .
-COPY pyproject.toml .
+# Copy requirements and install dependencies
+COPY ./requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Skopiuj kod źródłowy
+# Copy all application files
 COPY . .
 
-# Install dependencies from requirements.txt and then install package
-RUN pip install --no-cache-dir -r requirements.txt && pip install -e .
+# Install the package in editable mode for MCP server
+RUN pip install -e .
 
-# Create entrypoint script
-RUN echo '#!/bin/bash' > /entrypoint.sh && \
-    echo 'if [ -n "$GOOGLE_CREDENTIALS_BASE64" ]; then' >> /entrypoint.sh && \
-    echo '  echo "$GOOGLE_CREDENTIALS_BASE64" | base64 -d > /app/credentials.json' >> /entrypoint.sh && \
-    echo '  export GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json' >> /entrypoint.sh && \
-    echo 'fi' >> /entrypoint.sh && \
-    echo 'exec python full_ads_api.py' >> /entrypoint.sh && \
-    chmod +x /entrypoint.sh
-
-# Expose port for HTTP wrapper
+# Expose port 7777
 EXPOSE 7777
 
-# Use entrypoint
-ENTRYPOINT ["/entrypoint.sh"]
+# Run the MCP server with credentials setup
+CMD ["python3", "start_mcp.py"]

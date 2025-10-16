@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Zainstaluj dependencies bezpośrednio
-RUN pip install google-ads mcp[cli] flask
+RUN pip install google-ads mcp[cli] fastapi uvicorn python-dotenv
 
 # Ustaw working directory
 WORKDIR /app
@@ -21,7 +21,7 @@ RUN echo '#!/bin/bash' > /entrypoint.sh && \
     echo '  echo "$GOOGLE_CREDENTIALS_BASE64" | base64 -d > /app/credentials.json' >> /entrypoint.sh && \
     echo '  export GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json' >> /entrypoint.sh && \
     echo 'fi' >> /entrypoint.sh && \
-    echo 'exec python http_wrapper.py' >> /entrypoint.sh && \
+    echo 'exec python full_ads_api.py' >> /entrypoint.sh && \
     chmod +x /entrypoint.sh
 
 # Expose port for HTTP wrapper

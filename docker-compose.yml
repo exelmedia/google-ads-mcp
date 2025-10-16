@@ -15,8 +15,8 @@ services:
     volumes:
       - ${GOOGLE_CREDENTIALS_HOST_PATH:-./credentials.json}:/app/credentials.json:ro
     
-    # Use fastmcp for proper MCP server
-    command: fastmcp run google_ads_mcp_server.py --transport http --host 0.0.0.0 --port 7777
+    # Use FastAPI full ads API with MCP endpoint
+    command: python full_ads_api.py
     
     # Restart policy
     restart: unless-stopped

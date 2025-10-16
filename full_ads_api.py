@@ -4,14 +4,17 @@ Full Google Ads API - HTTP endpoints for all Google Ads MCP tools
 Based on successful GA MCP API implementation
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sse_starlette.sse import EventSourceResponse
 import uvicorn
 import os
-from typing import Optional, List
+from typing import Optional, List, AsyncIterator
 import json
 import base64
+import asyncio
 from dotenv import load_dotenv
 
 # Try to load from .env file
@@ -134,7 +137,11 @@ async def health_check():
 
 # ===== MCP TOOL 1: list_accessible_customers =====
 @app.get("/customers")
-async def list_accessible_customers():
+def list_accessible_customers_endpoint():
+    """HTTP endpoint for listing customers"""
+    return list_accessible_customers_sync()
+
+def list_accessible_customers_sync():
     """List accessible customers - MCP Tool: list_accessible_customers"""
     if not ADS_AVAILABLE:
         raise HTTPException(status_code=500, detail="Google Ads libraries not available")
@@ -163,7 +170,11 @@ async def list_accessible_customers():
 
 # ===== MCP TOOL 2: search =====
 @app.post("/search")
-async def search(search_request: SearchRequest):
+def search_endpoint(search_request: SearchRequest):
+    """HTTP endpoint for search"""
+    return search_sync(search_request)
+
+def search_sync(search_request: SearchRequest):
     """Search Google Ads data - MCP Tool: search"""
     if not ADS_AVAILABLE:
         raise HTTPException(status_code=500, detail="Google Ads libraries not available")
@@ -211,13 +222,17 @@ async def search(search_request: SearchRequest):
 
 # ===== HELPER ENDPOINTS =====
 @app.get("/campaigns/{customer_id}")
-async def get_campaigns(customer_id: str):
+def get_campaigns_endpoint(customer_id: str):
+    """HTTP endpoint for campaigns"""
+    return get_campaigns_sync(customer_id)
+
+def get_campaigns_sync(customer_id: str):
     """Get campaigns for a customer - Helper endpoint"""
     search_request = SearchRequest(
         customer_id=customer_id,
         query="SELECT campaign.id, campaign.name, campaign.status FROM campaign"
     )
-    return await search(search_request)
+    return search_sync(search_request)
 
 @app.get("/debug")
 async def debug_endpoint():
@@ -250,8 +265,162 @@ async def debug_endpoint():
     except Exception as e:
         return {"error": str(e)}
 
+# ===== MCP PROTOCOL CLASSES =====
+class MCPRequest(BaseModel):
+    jsonrpc: str = "2.0"
+    id: Optional[str] = None
+    method: str
+    params: Optional[dict] = None
+
+class MCPResponse(BaseModel):
+    jsonrpc: str = "2.0"
+    id: Optional[str] = None
+    result: Optional[dict] = None
+    error: Optional[dict] = None
+
+# ===== MCP ENDPOINT WITH SSE =====
+@app.post("/mcp")
+@app.get("/mcp")
+async def mcp_endpoint(request: Request):
+    """MCP Protocol endpoint with Server-Sent Events support"""
+    
+    # Check Accept header for SSE
+    accept = request.headers.get("accept", "")
+    if "text/event-stream" not in accept:
+        return {
+            "jsonrpc": "2.0",
+            "id": "server-error", 
+            "error": {
+                "code": -32600,
+                "message": "Not Acceptable: Client must accept text/event-stream"
+            }
+        }
+    
+    # Check for session ID in query params or headers
+    session_id = request.query_params.get("session_id") or request.headers.get("x-session-id")
+    if not session_id:
+        return {
+            "jsonrpc": "2.0",
+            "id": "server-error",
+            "error": {
+                "code": -32600,
+                "message": "Bad Request: Missing session ID"
+            }
+        }
+    
+    async def event_stream() -> AsyncIterator[str]:
+        """Generate MCP events"""
+        try:
+            # Send initial handshake
+            yield json.dumps({
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized",
+                "params": {}
+            })
+            
+            # Send available tools
+            tools = [
+                {
+                    "name": "list_accessible_customers",
+                    "description": "List accessible Google Ads customers",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                },
+                {
+                    "name": "search", 
+                    "description": "Search Google Ads data using GAQL query",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "customer_id": {"type": "string", "description": "Customer ID (without dashes)"},
+                            "query": {"type": "string", "description": "GAQL query string"}
+                        },
+                        "required": ["customer_id", "query"]
+                    }
+                },
+                {
+                    "name": "get_campaigns",
+                    "description": "Get campaigns for a customer", 
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "customer_id": {"type": "string", "description": "Customer ID (without dashes)"}
+                        },
+                        "required": ["customer_id"]
+                    }
+                }
+            ]
+            
+            yield json.dumps({
+                "jsonrpc": "2.0",
+                "method": "tools/list", 
+                "params": {
+                    "tools": tools
+                }
+            })
+            
+            # Keep connection alive
+            while True:
+                await asyncio.sleep(1)
+                yield json.dumps({
+                    "jsonrpc": "2.0",
+                    "method": "notifications/ping",
+                    "params": {"timestamp": int(asyncio.get_event_loop().time())}
+                })
+                
+        except Exception as e:
+            yield json.dumps({
+                "jsonrpc": "2.0",
+                "id": "server-error",
+                "error": {
+                    "code": -32603,
+                    "message": f"Internal error: {str(e)}"
+                }
+            })
+    
+    return EventSourceResponse(event_stream())
+
+# ===== MCP TOOL EXECUTION =====
+@app.post("/mcp/call/{tool_name}")
+async def call_mcp_tool(tool_name: str, request: dict):
+    """Execute MCP tool"""
+    try:
+        if tool_name == "list_accessible_customers":
+            result = list_accessible_customers_sync()
+        elif tool_name == "search":
+            customer_id = request.get("customer_id")
+            query = request.get("query")
+            if not customer_id or not query:
+                raise ValueError("Missing required parameters: customer_id, query")
+            search_request = SearchRequest(customer_id=customer_id, query=query)
+            result = search_sync(search_request)
+        elif tool_name == "get_campaigns":
+            customer_id = request.get("customer_id")
+            if not customer_id:
+                raise ValueError("Missing required parameter: customer_id")
+            result = get_campaigns_sync(customer_id)
+        else:
+            raise ValueError(f"Unknown tool: {tool_name}")
+            
+        return {
+            "jsonrpc": "2.0",
+            "result": result
+        }
+        
+    except Exception as e:
+        return {
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32603,
+                "message": str(e)
+            }
+        }
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5001))
+    port = int(os.environ.get("PORT", 7777))
     uvicorn.run(
         app, 
         host="0.0.0.0", 

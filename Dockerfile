@@ -25,7 +25,7 @@ RUN echo '#!/bin/bash' > /entrypoint.sh && \
     echo '  echo "$GOOGLE_CREDENTIALS_BASE64" | base64 -d > /app/credentials.json' >> /entrypoint.sh && \
     echo '  export GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json' >> /entrypoint.sh && \
     echo 'fi' >> /entrypoint.sh && \
-    echo 'exec fastmcp run google_ads_mcp_server.py --transport http --host 0.0.0.0 --port 7777' >> /entrypoint.sh && \
+    echo 'exec python full_ads_api.py' >> /entrypoint.sh && \
     chmod +x /entrypoint.sh
 
 # Expose port for HTTP wrapper

@@ -4,7 +4,7 @@ services:
   google-ads-mcp:
     build: .
     ports:
-      - "7777:5001"
+      - "7777:7777"
     env_file:
       - .env
     environment:
@@ -15,15 +15,15 @@ services:
     volumes:
       - ${GOOGLE_CREDENTIALS_HOST_PATH:-./credentials.json}:/app/credentials.json:ro
     
-    # Use HTTP wrapper instead of MCP server directly
-    command: python http_wrapper.py
+    # Use FastAPI full ads API
+    command: uvicorn full_ads_api:app --host 0.0.0.0 --port 7777
     
     # Restart policy
     restart: unless-stopped
     
     # Health check for HTTP wrapper
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:7777/health"]
       interval: 30s
       timeout: 10s
       retries: 3

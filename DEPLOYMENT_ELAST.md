@@ -4,18 +4,17 @@
 
 ### Build Command
 ```bash
-docker-compose build
+pip install --no-cache-dir -r requirements.txt && pip install -e .
 ```
 
 ### Install Command
 ```bash
-# Nie wymagane - wszystkie dependencies są instalowane w Dockerfile
-echo "Dependencies installed during build"
+# Leave empty - no echo commands
 ```
 
 ### Run Command
 ```bash
-docker-compose up
+fastmcp run google_ads_mcp_server.py --transport http --host 0.0.0.0 --port 7777
 ```
 
 ## Environment Variables (wymagane)

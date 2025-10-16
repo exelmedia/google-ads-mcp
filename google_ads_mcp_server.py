@@ -156,5 +156,9 @@ def get_campaigns(customer_id: str) -> dict[str, Any]:
     query = "SELECT campaign.id, campaign.name, campaign.status FROM campaign"
     return search(customer_id, query)
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the server"""
     mcp.run()
+
+if __name__ == "__main__":
+    main()

@@ -3,6 +3,7 @@ FROM python:3.11-slim
 # Zainstaluj system dependencies
 RUN apt-get update && apt-get install -y \
     git \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Zainstaluj pipx
@@ -21,8 +22,8 @@ COPY . .
 # Zainstaluj pakiet
 RUN pipx install .
 
-# Expose port (domyślnie MCP używa stdio, ale dla celów serwera HTTP można dodać port)
-EXPOSE 8000
+# Expose port for HTTP wrapper
+EXPOSE 5001
 
-# Uruchom serwer MCP
-CMD ["google-ads-mcp"]
+# Default to HTTP wrapper for deployment
+CMD ["python", "http_wrapper.py"]

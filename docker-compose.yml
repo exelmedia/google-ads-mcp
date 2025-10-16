@@ -4,23 +4,26 @@ services:
   google-ads-mcp:
     build: .
     ports:
-      - "7777:8000"
+      - "7777:5001"
     env_file:
       - .env
     environment:
       # Google Cloud credentials (option 1 - Application Default Credentials)
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
     
-    # Zamontuj credentials file jeśli używasz Application Default Credentials
+    # Mount credentials file
     volumes:
       - ${GOOGLE_CREDENTIALS_HOST_PATH:-./credentials.json}:/app/credentials.json:ro
+    
+    # Use HTTP wrapper instead of MCP server directly
+    command: python http_wrapper.py
     
     # Restart policy
     restart: unless-stopped
     
-    # Health check
+    # Health check for HTTP wrapper
     healthcheck:
-      test: ["CMD", "python", "-c", "import google.ads; print('OK')"]
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 30s
       timeout: 10s
       retries: 3

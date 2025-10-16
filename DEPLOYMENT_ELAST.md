@@ -44,7 +44,7 @@ Ustaw następujące zmienne środowiskowe w panelu elast.io:
 
 ## Reverse Proxy Configuration
 
-- **Target**: `172.17.0.1:8080`
+- **Target**: `172.17.0.1:8888`
 - **Protocol**: HTTP
 - **Health Check Path**: `/health` (opcjonalne)
 
@@ -71,7 +71,7 @@ Ustaw następujące zmienne środowiskowe w panelu elast.io:
 Po deployment sprawdź logi w panelu elast.io:
 - Serwer powinien uruchomić się bez błędów
 - Sprawdź połączenie z Google Ads API
-- Testuj dostępność na porcie 8080
+- Testuj dostępność na porcie 8888
 
 ## Bezpieczeństwo
 

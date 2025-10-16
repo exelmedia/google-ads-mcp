@@ -15,8 +15,15 @@ WORKDIR /app
 # Skopiuj kod źródłowy
 COPY . .
 
+# Create script to decode credentials from base64
+RUN echo '#!/bin/bash' > /app/decode_credentials.sh && \
+    echo 'if [ -n "$GOOGLE_CREDENTIALS_BASE64" ]; then' >> /app/decode_credentials.sh && \
+    echo '  echo "$GOOGLE_CREDENTIALS_BASE64" | base64 -d > /app/credentials.json' >> /app/decode_credentials.sh && \
+    echo 'fi' >> /app/decode_credentials.sh && \
+    chmod +x /app/decode_credentials.sh
+
 # Expose port for HTTP wrapper
 EXPOSE 5001
 
 # Default to HTTP wrapper for deployment
-CMD ["python", "http_wrapper.py"]
+CMD ["sh", "-c", "/app/decode_credentials.sh && python http_wrapper.py"]

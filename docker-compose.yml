@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  google-ads-mcp:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Google Cloud credentials (option 1 - Application Default Credentials)
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+    
+    # Zamontuj credentials file jeśli używasz Application Default Credentials
+    volumes:
+      - ${GOOGLE_CREDENTIALS_HOST_PATH:-./credentials.json}:/app/credentials.json:ro
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import google.ads; print('OK')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

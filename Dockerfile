@@ -6,17 +6,18 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
-
-# Install dependencies from requirements.txt and then install package
-RUN pip install --no-cache-dir -r requirements.txt && pip install -e .
-
 # Ustaw working directory
 WORKDIR /app
 
+# Copy requirements first for better caching
+COPY requirements.txt .
+COPY pyproject.toml .
+
 # Skopiuj kod źródłowy
 COPY . .
+
+# Install dependencies from requirements.txt and then install package
+RUN pip install --no-cache-dir -r requirements.txt && pip install -e .
 
 # Create entrypoint script
 RUN echo '#!/bin/bash' > /entrypoint.sh && \

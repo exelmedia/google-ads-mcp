@@ -68,10 +68,33 @@ Ustaw następujące zmienne środowiskowe w panelu elast.io:
 
 ## Sprawdzanie Deploymentu
 
-Po deployment sprawdź logi w panelu elast.io:
-- Serwer powinien uruchomić się bez błędów
-- Sprawdź połączenie z Google Ads API
-- Testuj dostępność na porcie 7777
+Po deployment sprawdź:
+
+### Health Check
+```bash
+curl https://your-domain/health
+# Oczekiwana odpowiedź: {"status": "healthy", "service": "google-ads-mcp-wrapper"}
+```
+
+### Lista dostępnych narzędzi
+```bash
+curl https://your-domain/tools
+```
+
+### Przykład zapytania do Google Ads API
+```bash
+curl -X POST https://your-domain/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "list_accessible_customers",
+      "arguments": {}
+    }
+  }'
+```
 
 ## Bezpieczeństwo
 

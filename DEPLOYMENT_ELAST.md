@@ -4,7 +4,7 @@
 
 ### Build Command
 ```bash
-pip install --no-cache-dir -r requirements.txt && pip install -e .
+python3 -m pip install --no-cache-dir -r requirements.txt && python3 -m pip install -e .
 ```
 
 ### Install Command
@@ -14,7 +14,7 @@ pip install --no-cache-dir -r requirements.txt && pip install -e .
 
 ### Run Command
 ```bash
-fastmcp run google_ads_mcp_server.py --transport http --host 0.0.0.0 --port 7777
+python3 start_server.py
 ```
 
 ## Environment Variables (wymagane)

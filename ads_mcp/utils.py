@@ -85,14 +85,28 @@ def get_googleads_type(typeName: str):
 
 
 def format_output_value(value: Any) -> Any:
+    """Format a value for safe JSON serialization."""
     if isinstance(value, proto.Enum):
         return value.name
-    else:
+    elif hasattr(value, '_pb'):
+        # Handle protobuf objects that might cause serialization issues
+        return str(value)
+    elif isinstance(value, (int, float, str, bool)):
         return value
+    else:
+        # Convert any other object to string for safety
+        return str(value)
 
 
 def format_output_row(row: proto.Message, attributes):
-    return {
-        attr: format_output_value(get_nested_attr(row, attr))
-        for attr in attributes
-    }
+    """Format a row for safe JSON serialization, avoiding protobuf serialization issues."""
+    result = {}
+    for attr in attributes:
+        try:
+            value = get_nested_attr(row, attr)
+            result[attr] = format_output_value(value)
+        except Exception as e:
+            # If there's any issue getting the attribute, use a safe fallback
+            logger.warning(f"Error getting attribute {attr}: {e}")
+            result[attr] = f"Error: {str(e)}"
+    return result

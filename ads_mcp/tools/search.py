@@ -21,23 +21,59 @@ import ads_mcp.utils as utils
 
 def search(
     customer_id: str,
-    fields: List[str],
-    resource: str,
+    fields: List[str] = None,
+    resource: str = None,
     conditions: List[str] = None,
     orderings: List[str] = None,
     limit: int | str = None,
+    query: str = None,
 ) -> List[Dict[str, Any]]:
     """Fetches data from the Google Ads API using the search method
 
     Args:
         customer_id: The id of the customer
-        fields: The fields to fetch
-        resource: The resource to return fields from
+        fields: The fields to fetch (optional if query provided)
+        resource: The resource to return fields from (optional if query provided)
         conditions: List of conditions to filter the data, combined using AND clauses
         orderings: How the data is ordered
         limit: The maximum number of rows to return
+        query: Full GAQL query (alternative to fields/resource parameters)
 
     """
+    # Handle query parameter for Claude.ai compatibility
+    if query:
+        import re
+        query = query.strip()
+        
+        # Extract SELECT fields and FROM resource
+        select_match = re.search(r'SELECT\s+(.+?)\s+FROM\s+(\w+)', query, re.IGNORECASE)
+        if select_match:
+            fields = [field.strip() for field in select_match.group(1).split(',')]
+            resource = select_match.group(2)
+            
+            # Parse WHERE conditions
+            if not conditions:
+                where_match = re.search(r'WHERE\s+(.+?)(?:\s+ORDER\s+BY|\s+LIMIT|$)', query, re.IGNORECASE)
+                if where_match:
+                    conditions = [where_match.group(1)]
+            
+            # Parse ORDER BY
+            if not orderings:
+                order_match = re.search(r'ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)', query, re.IGNORECASE)
+                if order_match:
+                    orderings = [order_match.group(1)]
+            
+            # Parse LIMIT
+            if not limit:
+                limit_match = re.search(r'LIMIT\s+(\d+)', query, re.IGNORECASE)
+                if limit_match:
+                    limit = int(limit_match.group(1))
+        else:
+            raise ValueError("Invalid GAQL query: missing SELECT and FROM clauses")
+    
+    # Validate required parameters
+    if not fields or not resource:
+        raise ValueError("Either 'query' parameter or both 'fields' and 'resource' parameters are required")
 
     ga_service = utils.get_googleads_service("GoogleAdsService")
 
@@ -55,36 +91,17 @@ def search(
     query = "".join(query_parts)
     utils.logger.info(f"ads_mcp.search query {query}")
 
-    try:
-        query_result = ga_service.search_stream(
-            customer_id=customer_id, query=query
-        )
+    query_result = ga_service.search_stream(
+        customer_id=customer_id, query=query
+    )
 
-        final_output: List = []
-        for batch in query_result:
-            for row in batch.results:
-                formatted_row = utils.format_output_row(row, batch.field_mask.paths)
-                # Ensure all values are JSON serializable
-                final_output.append(_ensure_serializable(formatted_row))
-        
-        utils.logger.info(f"Successfully processed {len(final_output)} rows")
-        return final_output
-    except Exception as e:
-        utils.logger.error(f"Error in search: {type(e).__name__}: {str(e)}", exc_info=True)
-        raise
-
-
-def _ensure_serializable(obj: Any) -> Any:
-    """Recursively ensure all objects are JSON serializable."""
-    if isinstance(obj, dict):
-        return {k: _ensure_serializable(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [_ensure_serializable(item) for item in obj]
-    elif isinstance(obj, (str, int, float, bool, type(None))):
-        return obj
-    else:
-        # Convert any other type to string
-        return str(obj)
+    final_output: List = []
+    for batch in query_result:
+        for row in batch.results:
+            final_output.append(
+                utils.format_output_row(row, batch.field_mask.paths)
+            )
+    return final_output
 
 
 def _search_tool_description() -> str:
@@ -143,41 +160,3 @@ mcp.add_tool(
     title="Fetches data from the Google Ads API using the search method",
     description=_search_tool_description(),
 )
-
-
-@mcp.tool()
-def search_with_query(
-    customer_id: str,
-    query: str,
-) -> List[Dict[str, Any]]:
-    """Executes a raw GAQL query against the Google Ads API
-    
-    Args:
-        customer_id: The customer ID (without dashes)
-        query: GAQL query string (e.g., "SELECT campaign.id, campaign.name FROM campaign LIMIT 10")
-    
-    Returns:
-        List of dictionaries containing the query results
-    """
-    
-    ga_service = utils.get_googleads_service("GoogleAdsService")
-    
-    utils.logger.info(f"ads_mcp.search_with_query query: {query}")
-    
-    try:
-        query_result = ga_service.search_stream(
-            customer_id=customer_id, query=query
-        )
-
-        final_output: List = []
-        for batch in query_result:
-            for row in batch.results:
-                formatted_row = utils.format_output_row(row, batch.field_mask.paths)
-                # Ensure all values are JSON serializable
-                final_output.append(_ensure_serializable(formatted_row))
-        
-        utils.logger.info(f"Successfully processed {len(final_output)} rows")
-        return final_output
-    except Exception as e:
-        utils.logger.error(f"Error in search_with_query: {type(e).__name__}: {str(e)}", exc_info=True)
-        raise

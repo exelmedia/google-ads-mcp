@@ -1,0 +1,17 @@
+LICENSE
+README.md
+pyproject.toml
+ads_mcp/__init__.py
+ads_mcp/coordinator.py
+ads_mcp/mcp_header_interceptor.py
+ads_mcp/server.py
+ads_mcp/update_references.py
+ads_mcp/utils.py
+ads_mcp/tools/core.py
+ads_mcp/tools/search.py
+google_ads_mcp.egg-info/PKG-INFO
+google_ads_mcp.egg-info/SOURCES.txt
+google_ads_mcp.egg-info/dependency_links.txt
+google_ads_mcp.egg-info/entry_points.txt
+google_ads_mcp.egg-info/requires.txt
+google_ads_mcp.egg-info/top_level.txt

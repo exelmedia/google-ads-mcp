@@ -1,0 +1,6 @@
+google-ads>=28.0.0
+mcp[cli]>=1.2.0
+
+[dev]
+black
+nox<2026,>=2025.5.1

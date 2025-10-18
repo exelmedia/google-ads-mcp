@@ -28,6 +28,9 @@ from google.ads.googleads.util import get_nested_attr
 import google.auth
 from ads_mcp.mcp_header_interceptor import MCPHeaderInterceptor
 import os
+import base64
+import json
+import tempfile
 
 GAQL_FILEPATH = "ads_mcp/gaql_resources.txt"
 
@@ -36,6 +39,27 @@ logging.basicConfig(level=logging.INFO)
 
 # Read-only scope for Analytics Admin API and Analytics Data API.
 _READ_ONLY_ADS_SCOPE = "https://www.googleapis.com/auth/adwords"
+
+
+def _setup_credentials_from_base64():
+    """Setup credentials from base64 encoded environment variable."""
+    creds_b64 = os.environ.get("GOOGLE_CREDENTIALS_BASE64")
+    if creds_b64 and not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+        try:
+            # Decode base64 and write to temporary file
+            creds_json = base64.b64decode(creds_b64).decode('utf-8')
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(creds_json)
+                temp_path = f.name
+            
+            # Set environment variable for Google Auth
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_path
+            logger.info(f"Credentials set from GOOGLE_CREDENTIALS_BASE64 to {temp_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to setup credentials from base64: {e}")
+            return False
+    return False
 
 
 def _create_credentials() -> google.auth.credentials.Credentials:
@@ -60,6 +84,9 @@ def _get_login_customer_id() -> str:
 
 
 def _get_googleads_client() -> GoogleAdsClient:
+    # Setup credentials from base64 if available
+    _setup_credentials_from_base64()
+    
     # Use this line if you have a google-ads.yaml file
     # client = GoogleAdsClient.load_from_storage()
     client = GoogleAdsClient(

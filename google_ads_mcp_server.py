@@ -20,7 +20,7 @@ from fastmcp import FastMCP
 from ads_mcp.mcp_header_interceptor import MCPHeaderInterceptor
 
 # Initialize server
-mcp = FastMCP("Google Ads MCP")
+mcp = FastMCP("Google Ads MCP v2")
 
 # Setup logging
 logger = logging.getLogger(__name__)

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 # Copyright 2025 Google LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,9 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Common utilities used by the MCP server."""
-
 from typing import Any
 import proto
 import logging
@@ -23,14 +20,12 @@ from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.v21.services.services.google_ads_service import (
     GoogleAdsServiceClient,
 )
-
 from google.ads.googleads.util import get_nested_attr
 import google.auth
 from ads_mcp.mcp_header_interceptor import MCPHeaderInterceptor
 import os
 
 GAQL_FILEPATH = "ads_mcp/gaql_resources.txt"
-
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -67,7 +62,6 @@ def _get_googleads_client() -> GoogleAdsClient:
         developer_token=_get_developer_token(),
         login_customer_id=_get_login_customer_id()
     )
-
     return client
 
 
@@ -85,28 +79,37 @@ def get_googleads_type(typeName: str):
 
 
 def format_output_value(value: Any) -> Any:
-    """Format a value for safe JSON serialization."""
     if isinstance(value, proto.Enum):
         return value.name
-    elif hasattr(value, '_pb'):
-        # Handle protobuf objects that might cause serialization issues
-        return str(value)
-    elif isinstance(value, (int, float, str, bool)):
-        return value
     else:
-        # Convert any other object to string for safety
-        return str(value)
+        return value
 
 
 def format_output_row(row: proto.Message, attributes):
-    """Format a row for safe JSON serialization, avoiding protobuf serialization issues."""
+    """Format a Protocol Buffer row into a dictionary.
+    
+    Args:
+        row: Protocol Buffer message object
+        attributes: List of attribute paths to extract
+        
+    Returns:
+        Dictionary with attribute names as keys and formatted values
+    """
     result = {}
     for attr in attributes:
         try:
+            # Skip internal Protocol Buffer attributes
+            if attr.startswith('_'):
+                logger.debug(f"Skipping internal attribute: {attr}")
+                continue
+                
             value = get_nested_attr(row, attr)
             result[attr] = format_output_value(value)
+        except (AttributeError, KeyError) as e:
+            logger.warning(f"Could not access attribute '{attr}': {e}")
+            result[attr] = None
         except Exception as e:
-            # If there's any issue getting the attribute, use a safe fallback
-            logger.warning(f"Error getting attribute {attr}: {e}")
-            result[attr] = f"Error: {str(e)}"
+            logger.error(f"Unexpected error accessing attribute '{attr}': {e}")
+            result[attr] = None
+    
     return result

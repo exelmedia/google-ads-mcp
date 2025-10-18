@@ -55,17 +55,36 @@ def search(
     query = "".join(query_parts)
     utils.logger.info(f"ads_mcp.search query {query}")
 
-    query_result = ga_service.search_stream(
-        customer_id=customer_id, query=query
-    )
+    try:
+        query_result = ga_service.search_stream(
+            customer_id=customer_id, query=query
+        )
 
-    final_output: List = []
-    for batch in query_result:
-        for row in batch.results:
-            final_output.append(
-                utils.format_output_row(row, batch.field_mask.paths)
-            )
-    return final_output
+        final_output: List = []
+        for batch in query_result:
+            for row in batch.results:
+                formatted_row = utils.format_output_row(row, batch.field_mask.paths)
+                # Ensure all values are JSON serializable
+                final_output.append(_ensure_serializable(formatted_row))
+        
+        utils.logger.info(f"Successfully processed {len(final_output)} rows")
+        return final_output
+    except Exception as e:
+        utils.logger.error(f"Error in search: {type(e).__name__}: {str(e)}", exc_info=True)
+        raise
+
+
+def _ensure_serializable(obj: Any) -> Any:
+    """Recursively ensure all objects are JSON serializable."""
+    if isinstance(obj, dict):
+        return {k: _ensure_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_ensure_serializable(item) for item in obj]
+    elif isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    else:
+        # Convert any other type to string
+        return str(obj)
 
 
 def _search_tool_description() -> str:

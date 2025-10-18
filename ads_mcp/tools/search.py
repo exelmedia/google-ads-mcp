@@ -21,23 +21,56 @@ import ads_mcp.utils as utils
 
 def search(
     customer_id: str,
-    fields: List[str],
-    resource: str,
+    fields: List[str] = None,
+    resource: str = None,
     conditions: List[str] = None,
     orderings: List[str] = None,
     limit: int | str = None,
+    query: str = None,
 ) -> List[Dict[str, Any]]:
     """Fetches data from the Google Ads API using the search method
 
     Args:
         customer_id: The id of the customer
-        fields: The fields to fetch
-        resource: The resource to return fields from
+        fields: The fields to fetch (optional if query provided)
+        resource: The resource to return fields from (optional if query provided)
         conditions: List of conditions to filter the data, combined using AND clauses
         orderings: How the data is ordered
         limit: The maximum number of rows to return
+        query: Full GAQL query (alternative to fields/resource parameters)
 
     """
+    # Handle query parameter for Claude.ai compatibility
+    if query:
+        import re
+        query = query.strip()
+        
+        # Extract SELECT fields and FROM resource
+        select_match = re.search(r'SELECT\s+(.+?)\s+FROM\s+(\w+)', query, re.IGNORECASE)
+        if select_match:
+            fields = [field.strip() for field in select_match.group(1).split(',')]
+            resource = select_match.group(2)
+            
+            # Parse WHERE conditions
+            where_match = re.search(r'WHERE\s+(.+?)(?:\s+ORDER\s+BY|\s+LIMIT|$)', query, re.IGNORECASE)
+            if where_match and not conditions:
+                conditions = [where_match.group(1)]
+            
+            # Parse ORDER BY
+            order_match = re.search(r'ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)', query, re.IGNORECASE)
+            if order_match and not orderings:
+                orderings = [order_match.group(1)]
+            
+            # Parse LIMIT
+            limit_match = re.search(r'LIMIT\s+(\d+)', query, re.IGNORECASE)
+            if limit_match and not limit:
+                limit = int(limit_match.group(1))
+        else:
+            raise ValueError("Invalid GAQL query: missing SELECT and FROM clauses")
+    
+    # Validate required parameters
+    if not fields or not resource:
+        raise ValueError("Either 'query' parameter or both 'fields' and 'resource' parameters are required")
 
     ga_service = utils.get_googleads_service("GoogleAdsService")
 
@@ -124,59 +157,3 @@ mcp.add_tool(
     title="Fetches data from the Google Ads API using the search method",
     description=_search_tool_description(),
 )
-
-
-import re
-
-
-@mcp.tool()
-def search_with_query(customer_id: str, query: str) -> List[Dict[str, Any]]:
-    """Execute a GAQL (Google Ads Query Language) query directly.
-    
-    Args:
-        customer_id: The customer ID (without dashes, e.g. "1234567890")
-        query: Full GAQL query like "SELECT campaign.id, campaign.name FROM campaign WHERE campaign.status = 'ENABLED'"
-    
-    Returns:
-        List of results from the Google Ads API
-    
-    Example:
-        search_with_query("1234567890", "SELECT campaign.id, campaign.name FROM campaign LIMIT 10")
-    """
-    # Parse GAQL query to extract components
-    query = query.strip()
-    
-    # Extract SELECT fields
-    select_match = re.search(r'SELECT\s+(.+?)\s+FROM\s+(\w+)', query, re.IGNORECASE)
-    if not select_match:
-        raise ValueError("Invalid GAQL query: missing SELECT and FROM clauses")
-    
-    fields_str = select_match.group(1).strip()
-    resource = select_match.group(2).strip()
-    
-    # Split fields and clean them
-    fields = [field.strip() for field in fields_str.split(',')]
-    
-    # Extract WHERE conditions
-    conditions = None
-    where_match = re.search(r'WHERE\s+(.+?)(?:\s+ORDER\s+BY|\s+LIMIT|$)', query, re.IGNORECASE)
-    if where_match:
-        conditions_str = where_match.group(1).strip()
-        # Simple condition parsing - can be improved
-        conditions = [conditions_str]
-    
-    # Extract ORDER BY
-    orderings = None
-    order_match = re.search(r'ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)', query, re.IGNORECASE)
-    if order_match:
-        orderings_str = order_match.group(1).strip()
-        orderings = [orderings_str]
-    
-    # Extract LIMIT
-    limit = None
-    limit_match = re.search(r'LIMIT\s+(\d+)', query, re.IGNORECASE)
-    if limit_match:
-        limit = int(limit_match.group(1))
-    
-    # Call the original search function
-    return search(customer_id, fields, resource, conditions, orderings, limit)

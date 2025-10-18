@@ -244,9 +244,9 @@ def main():
     print("🚀 Google Ads MCP Server starting...")
     print(f"📊 Available tools: search, list_accessible_customers")
     print(f"🔑 Required env vars: GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_PROJECT_ID")
-    print(f"🏃 Running with stdio transport...")
+    print(f"🏃 Running with HTTP transport...")
     
-    mcp.run(transport="stdio")
+    mcp.run()
 
 
 if __name__ == "__main__":

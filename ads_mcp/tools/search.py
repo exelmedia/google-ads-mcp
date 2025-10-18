@@ -144,6 +144,8 @@ mcp.add_tool(
     description=_search_tool_description(),
 )
 
+
+@mcp.tool()
 def search_with_query(
     customer_id: str,
     query: str,
@@ -179,11 +181,3 @@ def search_with_query(
     except Exception as e:
         utils.logger.error(f"Error in search_with_query: {type(e).__name__}: {str(e)}", exc_info=True)
         raise
-
-
-# Register the new tool
-mcp.add_tool(
-    search_with_query,
-    title="Execute raw GAQL query",
-    description="Executes a raw GAQL (Google Ads Query Language) query. Use this when you have a complete GAQL query string."
-)

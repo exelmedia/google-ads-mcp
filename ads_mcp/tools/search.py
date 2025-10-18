@@ -21,56 +21,23 @@ import ads_mcp.utils as utils
 
 def search(
     customer_id: str,
-    fields: List[str] = None,
-    resource: str = None,
+    fields: List[str],
+    resource: str,
     conditions: List[str] = None,
     orderings: List[str] = None,
     limit: int | str = None,
-    query: str = None,
 ) -> List[Dict[str, Any]]:
     """Fetches data from the Google Ads API using the search method
 
     Args:
         customer_id: The id of the customer
-        fields: The fields to fetch (optional if query provided)
-        resource: The resource to return fields from (optional if query provided)
+        fields: The fields to fetch
+        resource: The resource to return fields from
         conditions: List of conditions to filter the data, combined using AND clauses
         orderings: How the data is ordered
         limit: The maximum number of rows to return
-        query: Full GAQL query (alternative to fields/resource parameters)
 
     """
-    # Handle query parameter for Claude.ai compatibility
-    if query:
-        import re
-        query = query.strip()
-        
-        # Extract SELECT fields and FROM resource
-        select_match = re.search(r'SELECT\s+(.+?)\s+FROM\s+(\w+)', query, re.IGNORECASE)
-        if select_match:
-            fields = [field.strip() for field in select_match.group(1).split(',')]
-            resource = select_match.group(2)
-            
-            # Parse WHERE conditions
-            where_match = re.search(r'WHERE\s+(.+?)(?:\s+ORDER\s+BY|\s+LIMIT|$)', query, re.IGNORECASE)
-            if where_match and not conditions:
-                conditions = [where_match.group(1)]
-            
-            # Parse ORDER BY
-            order_match = re.search(r'ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)', query, re.IGNORECASE)
-            if order_match and not orderings:
-                orderings = [order_match.group(1)]
-            
-            # Parse LIMIT
-            limit_match = re.search(r'LIMIT\s+(\d+)', query, re.IGNORECASE)
-            if limit_match and not limit:
-                limit = int(limit_match.group(1))
-        else:
-            raise ValueError("Invalid GAQL query: missing SELECT and FROM clauses")
-    
-    # Validate required parameters
-    if not fields or not resource:
-        raise ValueError("Either 'query' parameter or both 'fields' and 'resource' parameters are required")
 
     ga_service = utils.get_googleads_service("GoogleAdsService")
 

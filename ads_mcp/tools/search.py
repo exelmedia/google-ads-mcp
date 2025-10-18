@@ -143,3 +143,47 @@ mcp.add_tool(
     title="Fetches data from the Google Ads API using the search method",
     description=_search_tool_description(),
 )
+
+def search_with_query(
+    customer_id: str,
+    query: str,
+) -> List[Dict[str, Any]]:
+    """Executes a raw GAQL query against the Google Ads API
+    
+    Args:
+        customer_id: The customer ID (without dashes)
+        query: GAQL query string (e.g., "SELECT campaign.id, campaign.name FROM campaign LIMIT 10")
+    
+    Returns:
+        List of dictionaries containing the query results
+    """
+    
+    ga_service = utils.get_googleads_service("GoogleAdsService")
+    
+    utils.logger.info(f"ads_mcp.search_with_query query: {query}")
+    
+    try:
+        query_result = ga_service.search_stream(
+            customer_id=customer_id, query=query
+        )
+
+        final_output: List = []
+        for batch in query_result:
+            for row in batch.results:
+                formatted_row = utils.format_output_row(row, batch.field_mask.paths)
+                # Ensure all values are JSON serializable
+                final_output.append(_ensure_serializable(formatted_row))
+        
+        utils.logger.info(f"Successfully processed {len(final_output)} rows")
+        return final_output
+    except Exception as e:
+        utils.logger.error(f"Error in search_with_query: {type(e).__name__}: {str(e)}", exc_info=True)
+        raise
+
+
+# Register the new tool
+mcp.add_tool(
+    search_with_query,
+    title="Execute raw GAQL query",
+    description="Executes a raw GAQL (Google Ads Query Language) query. Use this when you have a complete GAQL query string."
+)

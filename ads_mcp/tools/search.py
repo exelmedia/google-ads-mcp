@@ -124,3 +124,59 @@ mcp.add_tool(
     title="Fetches data from the Google Ads API using the search method",
     description=_search_tool_description(),
 )
+
+
+import re
+
+
+@mcp.tool()
+def search_with_query(customer_id: str, query: str) -> List[Dict[str, Any]]:
+    """Execute a GAQL (Google Ads Query Language) query directly.
+    
+    Args:
+        customer_id: The customer ID (without dashes, e.g. "1234567890")
+        query: Full GAQL query like "SELECT campaign.id, campaign.name FROM campaign WHERE campaign.status = 'ENABLED'"
+    
+    Returns:
+        List of results from the Google Ads API
+    
+    Example:
+        search_with_query("1234567890", "SELECT campaign.id, campaign.name FROM campaign LIMIT 10")
+    """
+    # Parse GAQL query to extract components
+    query = query.strip()
+    
+    # Extract SELECT fields
+    select_match = re.search(r'SELECT\s+(.+?)\s+FROM\s+(\w+)', query, re.IGNORECASE)
+    if not select_match:
+        raise ValueError("Invalid GAQL query: missing SELECT and FROM clauses")
+    
+    fields_str = select_match.group(1).strip()
+    resource = select_match.group(2).strip()
+    
+    # Split fields and clean them
+    fields = [field.strip() for field in fields_str.split(',')]
+    
+    # Extract WHERE conditions
+    conditions = None
+    where_match = re.search(r'WHERE\s+(.+?)(?:\s+ORDER\s+BY|\s+LIMIT|$)', query, re.IGNORECASE)
+    if where_match:
+        conditions_str = where_match.group(1).strip()
+        # Simple condition parsing - can be improved
+        conditions = [conditions_str]
+    
+    # Extract ORDER BY
+    orderings = None
+    order_match = re.search(r'ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)', query, re.IGNORECASE)
+    if order_match:
+        orderings_str = order_match.group(1).strip()
+        orderings = [orderings_str]
+    
+    # Extract LIMIT
+    limit = None
+    limit_match = re.search(r'LIMIT\s+(\d+)', query, re.IGNORECASE)
+    if limit_match:
+        limit = int(limit_match.group(1))
+    
+    # Call the original search function
+    return search(customer_id, fields, resource, conditions, orderings, limit)

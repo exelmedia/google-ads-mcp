@@ -98,16 +98,22 @@ def _get_googleads_client() -> GoogleAdsClient:
     return client
 
 
-_googleads_client = _get_googleads_client()
+_googleads_client = None
 
 
 def get_googleads_service(serviceName: str) -> GoogleAdsServiceClient:
+    global _googleads_client
+    if _googleads_client is None:
+        _googleads_client = _get_googleads_client()
     return _googleads_client.get_service(
         serviceName, interceptors=[MCPHeaderInterceptor()]
     )
 
 
 def get_googleads_type(typeName: str):
+    global _googleads_client
+    if _googleads_client is None:
+        _googleads_client = _get_googleads_client()
     return _googleads_client.get_type(typeName)
 
 

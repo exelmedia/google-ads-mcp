@@ -1,0 +1,52 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.exelmedia/google-ads-mcp",
+  "description": "An MCP server that provides Google Ads API functionality through GAQL queries and customer management tools",
+  "status": "active",
+  "repository": {
+    "url": "https://github.com/exelmedia/google-ads-mcp-server",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registry_type": "pypi",
+      "registry_base_url": "https://pypi.org",
+      "identifier": "google-ads-mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environment_variables": [
+        {
+          "description": "Google Ads API Developer Token",
+          "is_required": true,
+          "format": "string",
+          "is_secret": true,
+          "name": "GOOGLE_ADS_DEVELOPER_TOKEN"
+        },
+        {
+          "description": "Google Cloud Project ID",
+          "is_required": true,
+          "format": "string",
+          "is_secret": false,
+          "name": "GOOGLE_PROJECT_ID"
+        },
+        {
+          "description": "Google Ads Login Customer ID (Manager Account)",
+          "is_required": false,
+          "format": "string",
+          "is_secret": false,
+          "name": "GOOGLE_ADS_LOGIN_CUSTOMER_ID"
+        },
+        {
+          "description": "Base64 encoded Google Service Account JSON credentials",
+          "is_required": false,
+          "format": "string",
+          "is_secret": true,
+          "name": "GOOGLE_CREDENTIALS_BASE64"
+        }
+      ]
+    }
+  ]
+}

@@ -39,13 +39,12 @@ def setup_credentials():
             print("ERROR: GOOGLE_CREDENTIALS_BASE64 not found in environment")
             return False, "GOOGLE_CREDENTIALS_BASE64 not set"
         
-        # Use project directory for credentials
-        project_dir = '/opt/app/google-ads-mcp'
-        os.makedirs(project_dir, exist_ok=True)
+        # Use tmp directory which should be writable
+        os.makedirs('/tmp', exist_ok=True)
         
         # Decode Base64 and write to file
         credentials_data = base64.b64decode(credentials_base64)
-        credentials_path = '/opt/app/google-ads-mcp/credentials.json'
+        credentials_path = '/tmp/credentials.json'
         
         with open(credentials_path, 'wb') as f:
             f.write(credentials_data)
@@ -239,7 +238,7 @@ def get_campaigns_sync(customer_id: str):
 async def debug_endpoint():
     """Debug endpoint for credentials and status"""
     try:
-        creds_path = '/opt/app/google-ads-mcp/credentials.json'
+        creds_path = '/tmp/credentials.json'
         file_exists = os.path.exists(creds_path)
         file_size = os.path.getsize(creds_path) if file_exists else 0
         

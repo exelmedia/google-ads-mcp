@@ -281,45 +281,25 @@ class MCPResponse(BaseModel):
 
 # ===== MCP ENDPOINT WITH SSE =====
 @app.post("/mcp")
-@app.get("/mcp")
-async def mcp_endpoint(request: Request):
-    """MCP Protocol endpoint with Server-Sent Events support"""
-    
-    # Check Accept header for SSE
-    accept = request.headers.get("accept", "")
-    if "text/event-stream" not in accept:
-        return {
-            "jsonrpc": "2.0",
-            "id": "server-error", 
-            "error": {
-                "code": -32600,
-                "message": "Not Acceptable: Client must accept text/event-stream"
-            }
-        }
-    
-    # Check for session ID in query params or headers
-    session_id = request.query_params.get("session_id") or request.headers.get("x-session-id")
-    if not session_id:
-        return {
-            "jsonrpc": "2.0",
-            "id": "server-error",
-            "error": {
-                "code": -32600,
-                "message": "Bad Request: Missing session ID"
-            }
-        }
-    
-    async def event_stream() -> AsyncIterator[str]:
-        """Generate MCP events"""
-        try:
-            # Send initial handshake
-            yield json.dumps({
+async def mcp_post_endpoint(mcp_request: MCPRequest):
+    """MCP Protocol endpoint for JSON-RPC over HTTP"""
+    try:
+        if mcp_request.method == "initialize":
+            return {
                 "jsonrpc": "2.0",
-                "method": "notifications/initialized",
-                "params": {}
-            })
-            
-            # Send available tools
+                "id": mcp_request.id,
+                "result": {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {
+                        "tools": {}
+                    },
+                    "serverInfo": {
+                        "name": "google-ads-mcp",
+                        "version": "1.0.0"
+                    }
+                }
+            }
+        elif mcp_request.method == "tools/list":
             tools = [
                 {
                     "name": "list_accessible_customers",
@@ -331,7 +311,7 @@ async def mcp_endpoint(request: Request):
                     }
                 },
                 {
-                    "name": "search", 
+                    "name": "search",
                     "description": "Search Google Ads data using GAQL query",
                     "inputSchema": {
                         "type": "object",
@@ -344,7 +324,7 @@ async def mcp_endpoint(request: Request):
                 },
                 {
                     "name": "get_campaigns",
-                    "description": "Get campaigns for a customer", 
+                    "description": "Get campaigns for a customer",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -354,71 +334,65 @@ async def mcp_endpoint(request: Request):
                     }
                 }
             ]
-            
-            yield json.dumps({
+            return {
                 "jsonrpc": "2.0",
-                "method": "tools/list", 
-                "params": {
+                "id": mcp_request.id,
+                "result": {
                     "tools": tools
                 }
-            })
+            }
+        elif mcp_request.method == "tools/call":
+            tool_name = mcp_request.params.get("name")
+            arguments = mcp_request.params.get("arguments", {})
             
-            # Keep connection alive
-            while True:
-                await asyncio.sleep(1)
-                yield json.dumps({
-                    "jsonrpc": "2.0",
-                    "method": "notifications/ping",
-                    "params": {"timestamp": int(asyncio.get_event_loop().time())}
-                })
-                
-        except Exception as e:
-            yield json.dumps({
+            if tool_name == "list_accessible_customers":
+                result = list_accessible_customers_sync()
+            elif tool_name == "search":
+                customer_id = arguments.get("customer_id")
+                query = arguments.get("query")
+                if not customer_id or not query:
+                    raise ValueError("Missing required parameters: customer_id, query")
+                search_request = SearchRequest(customer_id=customer_id, query=query)
+                result = search_sync(search_request)
+            elif tool_name == "get_campaigns":
+                customer_id = arguments.get("customer_id")
+                if not customer_id:
+                    raise ValueError("Missing required parameter: customer_id")
+                result = get_campaigns_sync(customer_id)
+            else:
+                raise ValueError(f"Unknown tool: {tool_name}")
+            
+            return {
                 "jsonrpc": "2.0",
-                "id": "server-error",
-                "error": {
-                    "code": -32603,
-                    "message": f"Internal error: {str(e)}"
+                "id": mcp_request.id,
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, indent=2)
+                        }
+                    ]
                 }
-            })
-    
-    return EventSourceResponse(event_stream())
-
-# ===== MCP TOOL EXECUTION =====
-@app.post("/mcp/call/{tool_name}")
-async def call_mcp_tool(tool_name: str, request: dict):
-    """Execute MCP tool"""
-    try:
-        if tool_name == "list_accessible_customers":
-            result = list_accessible_customers_sync()
-        elif tool_name == "search":
-            customer_id = request.get("customer_id")
-            query = request.get("query")
-            if not customer_id or not query:
-                raise ValueError("Missing required parameters: customer_id, query")
-            search_request = SearchRequest(customer_id=customer_id, query=query)
-            result = search_sync(search_request)
-        elif tool_name == "get_campaigns":
-            customer_id = request.get("customer_id")
-            if not customer_id:
-                raise ValueError("Missing required parameter: customer_id")
-            result = get_campaigns_sync(customer_id)
+            }
         else:
-            raise ValueError(f"Unknown tool: {tool_name}")
-            
-        return {
-            "jsonrpc": "2.0",
-            "result": result
-        }
-        
+            return {
+                "jsonrpc": "2.0",
+                "id": mcp_request.id,
+                "error": {
+                    "code": -32601,
+                    "message": f"Method not found: {mcp_request.method}"
+                }
+            }
     except Exception as e:
         return {
             "jsonrpc": "2.0",
+            "id": mcp_request.id if hasattr(mcp_request, 'id') else None,
             "error": {
                 "code": -32603,
-                "message": str(e)
+                "message": f"Internal error: {str(e)}"
             }
         }
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7777))

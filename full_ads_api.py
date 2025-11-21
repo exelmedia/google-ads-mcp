@@ -280,6 +280,23 @@ class MCPResponse(BaseModel):
     error: Optional[dict] = None
 
 # ===== MCP ENDPOINT WITH SSE =====
+@app.get("/mcp")
+async def mcp_get_endpoint():
+    """MCP preflight endpoint - returns server capabilities"""
+    return {
+        "jsonrpc": "2.0",
+        "result": {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {
+                "tools": {}
+            },
+            "serverInfo": {
+                "name": "google-ads-mcp",
+                "version": "1.0.0"
+            }
+        }
+    }
+
 @app.post("/mcp")
 async def mcp_post_endpoint(mcp_request: MCPRequest):
     """MCP Protocol endpoint for JSON-RPC over HTTP"""
